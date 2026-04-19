@@ -90,7 +90,7 @@ export function RegisterPage() {
 
     try {
       await register(formData);
-      navigate('/dashboard');
+      navigate('/login');
     } catch (err) {
       console.error('Erro ao registrar:', err);
     }
