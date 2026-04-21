@@ -44,7 +44,7 @@ export function LoginPage() {
     }
   };
 
-  const handleSubmit = async (e: React.SubmitEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     clearError();
 
@@ -54,7 +54,7 @@ export function LoginPage() {
 
     try {
       await login(formData);
-      navigate('/dashboard');
+      navigate('/users');
     } catch (err) {
       console.error('Erro ao fazer login:', err);
     }
@@ -85,10 +85,10 @@ export function LoginPage() {
 
             <div className="mb-4">
               <Input
-                label="Usuário ou Email"
-                type="text"
+                label="Email"
+                type="email"
                 name="email"
-                placeholder="seu_usuario ou seu_email@example.com"
+                placeholder="seu_email@example.com"
                 value={formData.email}
                 onChange={handleChange}
                 error={validationErrors.email}
