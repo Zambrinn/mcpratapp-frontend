@@ -1,5 +1,35 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { AuthResponse, LoginRequest, RegisterRequest, ApiError } from '../types/index';
+import {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  ApiError,
+  User,
+  UserUpdateRequest,
+} from '../types/index';
+
+function handleErrors(error: AxiosError): string {
+    const status = error.response?.status ?? 500
+    const data = error.response?.data as any
+
+    const backendMessage =
+      typeof data?.message === 'string' ? data.message.toLowerCase() : ''
+
+    const raw =
+      typeof data === 'string' ? data.toLowerCase() : JSON.stringify(data ?? {}).toLowerCase()
+
+    if (status === 401) return 'Email ou senha incorretos'
+    if (status === 403) return 'Você não tem permissão para esta ação'
+    if (status === 404) return 'Registro não encontrado'
+    if (status === 409) return 'Já existe um usuário com esse nome ou email'
+    if (status === 400) return 'Dados inválidos. Revise os campos e tente novamente'
+
+    if (/unique|duplicate|constraint|ja cadastrado|já cadastrado|already exists/.test(raw + ' ' + backendMessage)) {
+      return 'Já existe um usuário com esse nome ou email'
+    }
+
+    return 'Não foi possível concluir a operação. Tente novamente'
+  }
 
 class ApiService {
   private api: AxiosInstance;
@@ -37,10 +67,7 @@ class ApiService {
         });
         const apiError: ApiError = {
           status: error.response?.status || 500,
-          message: 
-            error.response?.status == 401
-                ? "Email ou senha incorretos"
-                : error.message,
+          message: handleErrors(error),
           errors : (error.response?.data as any)
         };
         return Promise.reject(apiError);
@@ -59,17 +86,33 @@ class ApiService {
   }
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
-      console.log('/POST - Enviando para /auth/register:', data);
       const response = await this.api.post<AuthResponse>('/auth/register', data);
-      console.log('Resposta recebida:', response)
 
-    
     localStorage.setItem('authToken', response.data.token);
     localStorage.setItem('user', JSON.stringify(response.data.user));
     
     return response.data;
   }
 
+  async getUsers(): Promise<User[]> {
+    const response = await this.api.get<User[]>('/users');
+    return response.data.map((user) => ({
+      ...user,
+      isActive: user.isActive ?? true,
+    }));
+  }
+
+  async updateUser(userId: string, data: UserUpdateRequest): Promise<User> {
+    const response = await this.api.put<User>(`/users/${userId}`, data);
+    return {
+      ...response.data,
+      isActive: response.data.isActive ?? true,
+    };
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await this.api.delete(`/users/${userId}`);
+  }
 
   logout(): void {
     localStorage.removeItem('authToken');
