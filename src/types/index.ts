@@ -8,6 +8,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -26,8 +27,22 @@ export interface RegisterRequest {
 
 export interface AuthResponse {
   token: string;
-  user: User,
-  expiresIn: number
+  user: User;
+  expiresIn: number;
+}
+
+export interface UserUpdateRequest {
+  name: string;
+  email: string;
+  password?: string;
+  role: UserRole;
+}
+
+export interface UserStats {
+  total: number;
+  active: number;
+  inactive: number;
+  newThisMonth: number;
 }
 
 export interface ApiError {
