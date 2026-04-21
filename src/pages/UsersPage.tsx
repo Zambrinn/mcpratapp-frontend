@@ -77,6 +77,9 @@ export function UsersPage() {
     role: UserRole.VENDOR,
   });
 
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<User | null>(null);
+
   const loadUsers = async () => {
     setIsLoading(true);
     setError(null);
@@ -187,18 +190,11 @@ export function UsersPage() {
   };
 
   const handleDeleteUser = async (selectedUser: User) => {
-    const confirmed = window.confirm(
-      `Tem certeza que deseja deletar o usuário ${selectedUser.name}?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     setError(null);
     try {
       await apiService.deleteUser(selectedUser.id);
       setUsers((current) => current.filter((item) => item.id !== selectedUser.id));
+      setDeleteConfirmUser(null);
     } catch (err: any) {
       setError(err.message || 'Não foi possível deletar o usuário.');
     }
@@ -255,9 +251,13 @@ export function UsersPage() {
               })}</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary-200 text-primary-800 font-bold flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => setShowProfileModal(true)}
+                className="h-10 w-10 rounded-full bg-primary-200 text-primary-800 font-bold flex items-center justify-center hover:bg-primary-300 transition cursor-pointer"
+              >
                 {user?.name?.slice(0, 2).toUpperCase() || 'AD'}
-              </div>
+              </button>
             </div>
           </header>
 
@@ -368,20 +368,26 @@ export function UsersPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex gap-2">
+                            <div className="flex gap-3">
                               <button
                                 type="button"
-                                className="text-primary-700 hover:text-primary-900"
                                 onClick={() => startEdit(currentUser)}
+                                className="text-primary-600 hover:text-primary-800 transition"
+                                title="Editar usuário"
                               >
-                                Editar
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
                               </button>
                               <button
                                 type="button"
-                                className="text-red-600 hover:text-red-800"
-                                onClick={() => handleDeleteUser(currentUser)}
+                                onClick={() => setDeleteConfirmUser(currentUser)}
+                                className="text-red-600 hover:text-red-800 transition"
+                                title="Deletar usuário"
                               >
-                                Deletar
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
                               </button>
                             </div>
                           </td>
@@ -471,6 +477,83 @@ export function UsersPage() {
               </Button>
               <Button onClick={handleUpdateUser} isLoading={isSaving}>
                 Salvar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showProfileModal && user && (
+        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-20">
+          <div className="bg-white w-full max-w-xl rounded-xl p-6 border border-slate-200 shadow-lg space-y-4">
+            <h2 className="text-xl font-semibold text-slate-800">Meu Perfil</h2>
+
+            <div className="flex items-center gap-4 py-4 border-b border-slate-200">
+              <div className="h-16 w-16 rounded-full bg-primary-200 text-primary-800 font-bold flex items-center justify-center text-2xl">
+                {user.name?.slice(0, 2).toUpperCase() || 'AD'}
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-slate-800">{user.name}</p>
+                <p className="text-sm text-slate-500">{user.email}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm text-slate-600">Role</p>
+                <p className="font-medium text-slate-800">{user.role}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Status</p>
+                <p className="font-medium">
+                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                    user.isActive !== false
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {user.isActive !== false ? 'Ativo' : 'Inativo'}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Membro desde</p>
+                <p className="font-medium text-slate-800">{formatDate(user.createdAt)}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setShowProfileModal(false)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmUser && (
+        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-20">
+          <div className="bg-white w-full max-w-sm rounded-xl p-6 border border-slate-200 shadow-lg space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4v2m0 4v2m6-14l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">Deletar usuário?</h3>
+                <p className="text-sm text-slate-600">Tem certeza que deseja deletar <strong>{deleteConfirmUser.name}</strong>? Esta ação não pode ser desfeita.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setDeleteConfirmUser(null)}>
+                Cancelar
+              </Button>
+              <Button 
+                variant="danger" 
+                onClick={() => handleDeleteUser(deleteConfirmUser)}
+              >
+                Deletar
               </Button>
             </div>
           </div>
