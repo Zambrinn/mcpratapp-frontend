@@ -40,8 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response: AuthResponse = await apiService.register(data);
-      setUser(response.user);
+      await apiService.register(data);
+      apiService.logout();
+      setUser(null);
     } catch (err: any) {
       setError(err.message || 'Erro ao registrar');
       throw err;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Input, Button, Card, Alert } from '@components/index';
 import { LoginRequest } from '../types/index';
 
@@ -8,6 +9,7 @@ import { LoginRequest } from '../types/index';
 export function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading, error, clearError } = useAuth();
+  const { showToast } = useToast();
   
   const [formData, setFormData] = useState<LoginRequest>({
     email: '',
@@ -54,7 +56,8 @@ export function LoginPage() {
 
     try {
       await login(formData);
-      navigate('/users');
+      showToast('Login realizado com sucesso.');
+      navigate('/');
     } catch (err) {
       console.error('Erro ao fazer login:', err);
     }
