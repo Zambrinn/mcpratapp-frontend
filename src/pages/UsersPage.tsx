@@ -1,564 +1,483 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import apiService from '@services/api';
+import { Alert, AppLayout, Button, Card, Input } from '@components/index';
 import { useAuth } from '../context/AuthContext';
-import { User, UserRole, UserStats, UserUpdateRequest } from '../types/index';
-import { Button, Alert } from '@components/index';
+import {
+  PageResponse,
+  User,
+  UserCreateRequest,
+  UserRole,
+  UserStats,
+  UserStatus,
+  UserUpdateRequest,
+} from '../types/index';
 
-type RoleFilter = 'ALL' | UserRole;
+type UserForm = UserCreateRequest & { id?: string };
+
+const emptyForm: UserForm = {
+  name: '',
+  email: '',
+  password: '',
+  role: UserRole.VENDOR,
+};
+
+const emptyPage: PageResponse<User> = {
+  content: [],
+  totalElements: 0,
+  totalPages: 0,
+  size: 10,
+  number: 0,
+  first: true,
+  last: true,
+};
 
 function formatDate(date?: string): string {
-  if (!date) {
-    return '-';
-  }
-
+  if (!date) return '-';
   const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return '-';
-  }
-
-  return parsed.toLocaleDateString('pt-BR');
+  return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleDateString('pt-BR');
 }
 
-function getUserStats(users: User[]): UserStats {
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+function getStats(users: User[]): UserStats {
+  return users.reduce(
+    (stats, user) => ({
+      total: stats.total + 1,
+      active: stats.active + (user.status === UserStatus.ACTIVE ? 1 : 0),
+      inactive: stats.inactive + (user.status === UserStatus.INACTIVE ? 1 : 0),
+      deleted: stats.deleted + (user.status === UserStatus.DELETED ? 1 : 0),
+    }),
+    { total: 0, active: 0, inactive: 0, deleted: 0 },
+  );
+}
 
-  let active = 0;
-  let inactive = 0;
-  let newThisMonth = 0;
-
-  users.forEach((user) => {
-    const isActive = user.isActive !== false;
-    if (isActive) {
-      active += 1;
-    } else {
-      inactive += 1;
-    }
-
-    if (user.createdAt) {
-      const createdAt = new Date(user.createdAt);
-      if (
-        !Number.isNaN(createdAt.getTime()) &&
-        createdAt.getMonth() === currentMonth &&
-        createdAt.getFullYear() === currentYear
-      ) {
-        newThisMonth += 1;
-      }
-    }
-  });
-
+function statusLabel(status: UserStatus): string {
   return {
-    total: users.length,
-    active,
-    inactive,
-    newThisMonth,
-  };
+    [UserStatus.ACTIVE]: 'Ativo',
+    [UserStatus.INACTIVE]: 'Inativo',
+    [UserStatus.DELETED]: 'Excluído',
+  }[status];
+}
+
+function validateForm(form: UserForm, isEditing: boolean): string | null {
+  if (!form.name.trim()) return 'Nome é obrigatório.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return 'Email inválido.';
+  if (!isEditing && form.password.length < 6) return 'Senha deve ter pelo menos 6 caracteres.';
+  if (isEditing && form.password && form.password.length < 6) {
+    return 'Se informar uma nova senha, ela deve ter pelo menos 6 caracteres.';
+  }
+  return null;
 }
 
 export function UsersPage() {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
-
+  const { user: authenticatedUser } = useAuth();
+  const [page, setPage] = useState<PageResponse<User>>(emptyPage);
   const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
+  const [role, setRole] = useState<UserRole | ''>('');
+  const [status, setStatus] = useState<UserStatus | ''>('');
+  const [pageNumber, setPageNumber] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<UserForm>(emptyForm);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [confirmingUser, setConfirmingUser] = useState<User | null>(null);
 
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<UserUpdateRequest>({
-    name: '',
-    email: '',
-    password: '',
-    role: UserRole.VENDOR,
-  });
+  const stats = useMemo(() => getStats(users), [users]);
+  const isEditing = Boolean(form.id);
 
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [deleteConfirmUser, setDeleteConfirmUser] = useState<User | null>(null);
-
-  const loadUsers = async () => {
+  const loadUsers = async (nextPage = pageNumber) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiService.getUsers();
-      setUsers(response);
-    } catch (err: any) {
-      setError(err.message || 'Não foi possível carregar usuários.');
+      const response = await apiService.getUsers({
+        search: search.trim() || undefined,
+        role,
+        status,
+        page: nextPage,
+        size: 10,
+      });
+      setPage(response);
+      setUsers(response.content);
+      setPageNumber(response.number);
+    } catch (err) {
+      setError((err as Error).message || 'Não foi possível carregar usuários.');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadUsers();
+    void loadUsers(0);
   }, []);
 
-  const stats = useMemo(() => getUserStats(users), [users]);
-
-  const filteredUsers = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return users.filter((currentUser) => {
-      const matchesSearch =
-        query.length === 0 ||
-        currentUser.name.toLowerCase().includes(query) ||
-        currentUser.email.toLowerCase().includes(query) ||
-        currentUser.role.toLowerCase().includes(query);
-
-      const matchesRole = roleFilter === 'ALL' || currentUser.role === roleFilter;
-
-      return matchesSearch && matchesRole;
-    });
-  }, [users, search, roleFilter]);
-
-  const startEdit = (selectedUser: User) => {
-    setEditingUser(selectedUser);
-    setEditError(null);
-    setEditForm({
-      name: selectedUser.name,
-      email: selectedUser.email,
-      password: '',
-      role: selectedUser.role,
-    });
+  const openCreate = () => {
+    setForm(emptyForm);
+    setIsModalOpen(true);
+    setError(null);
   };
 
-  const cancelEdit = () => {
-    setEditingUser(null);
-    setEditError(null);
-    setEditForm({
-      name: '',
-      email: '',
+  const openEdit = (user: User) => {
+    setForm({
+      id: user.id,
+      name: user.name,
+      email: user.email,
       password: '',
-      role: UserRole.VENDOR,
+      role: user.role,
     });
+    setIsModalOpen(true);
+    setError(null);
   };
 
-  const handleUpdateUser = async () => {
-    if (!editingUser) {
+  const saveUser = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setMessage(null);
+
+    const validation = validateForm(form, isEditing);
+    if (validation) {
+      setError(validation);
       return;
     }
-
-    // Validar antes de enviar
-    const isValidEmail = (email: string): boolean => {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    };
-
-    if (!editForm.name.trim()) {
-      setEditError('Nome é obrigatório e não pode estar vazio.');
-      return;
-    }
-
-    if (!editForm.email.trim()) {
-      setEditError('Email é obrigatório e não pode estar vazio.');
-      return;
-    }
-
-    if (!isValidEmail(editForm.email)) {
-      setEditError('Email inválido. Use o formato: exemplo@email.com');
-      return;
-    }
-
-    if (editForm.password && editForm.password.length < 6) {
-      setEditError('Se informar senha, ela precisa ter pelo menos 6 caracteres.');
-      return;
-    }
-
-    const payload: UserUpdateRequest = {
-      name: editForm.name,
-      email: editForm.email,
-      role: editForm.role,
-      ...(editForm.password?.trim() ? { password: editForm.password } : {}),
-    };
 
     setIsSaving(true);
-    setEditError(null);
     try {
-      const updatedUser = await apiService.updateUser(editingUser.id, payload);
-      setUsers((current) =>
-        current.map((item) => (item.id === updatedUser.id ? updatedUser : item))
-      );
-      cancelEdit();
-    } catch (err: any) {
-      setEditError(err.message || 'Não foi possível atualizar o usuário.');
+      if (form.id) {
+        const payload: UserUpdateRequest = {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          role: form.role,
+          ...(form.password.trim() ? { password: form.password } : {}),
+        };
+        await apiService.updateUser(form.id, payload);
+        setMessage('Usuário atualizado.');
+      } else {
+        await apiService.createUser({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          password: form.password,
+          role: form.role,
+        });
+        setMessage('Usuário criado.');
+      }
+
+      setIsModalOpen(false);
+      setForm(emptyForm);
+      await loadUsers(pageNumber);
+    } catch (err) {
+      setError((err as Error).message || 'Não foi possível salvar o usuário.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDeleteUser = async (selectedUser: User) => {
+  const deactivateUser = async (user: User) => {
+    if (user.id === authenticatedUser?.id) {
+      setError('Você não pode desativar o próprio usuário logado.');
+      return;
+    }
+
     setError(null);
+    setMessage(null);
     try {
-      await apiService.deleteUser(selectedUser.id);
-      setUsers((current) => current.filter((item) => item.id !== selectedUser.id));
-      setDeleteConfirmUser(null);
-    } catch (err: any) {
-      setError(err.message || 'Não foi possível deletar o usuário.');
+      await apiService.deactivateUser(user.id);
+      setMessage('Usuário desativado.');
+      await loadUsers(pageNumber);
+    } catch (err) {
+      setError((err as Error).message || 'Não foi possível desativar o usuário.');
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const restoreUser = async (user: User) => {
+    setError(null);
+    setMessage(null);
+    try {
+      await apiService.restoreUser(user.id);
+      setMessage('Usuário restaurado.');
+      await loadUsers(pageNumber);
+    } catch (err) {
+      setError((err as Error).message || 'Não foi possível restaurar o usuário.');
+    }
+  };
+
+  const deleteUser = async () => {
+    if (!confirmingUser) return;
+    if (confirmingUser.id === authenticatedUser?.id) {
+      setError('Você não pode deletar o próprio usuário logado.');
+      setConfirmingUser(null);
+      return;
+    }
+
+    setError(null);
+    setMessage(null);
+    try {
+      await apiService.deleteUser(confirmingUser.id);
+      setConfirmingUser(null);
+      setMessage('Usuário deletado.');
+      await loadUsers(pageNumber);
+    } catch (err) {
+      setError((err as Error).message || 'Não foi possível deletar o usuário.');
+    }
+  };
+
+  const applyFilters = () => {
+    setPageNumber(0);
+    void loadUsers(0);
   };
 
   return (
-    <div className="min-h-screen bg-[#eef3f2] text-slate-700">
-      <div className="flex min-h-screen">
-        <aside className="w-[220px] bg-primary-400 text-white flex flex-col justify-between">
+    <AppLayout>
+      <section className="space-y-5">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <div className="px-5 py-6 border-b border-primary-500">
-              <p className="font-bold text-xl tracking-wide">MCPRATA</p>
-              <p className="text-xs text-primary-100">Sistema ERP</p>
-            </div>
-
-            <nav className="p-3 space-y-2 text-sm">                
-              {/* <button type="button" className="w-full text-left px-4 py-3 rounded-lg hover:bg-primary-500/70 transition">
-                Dashboard
-              </button>
-              <button type="button" className="w-full text-left px-4 py-3 rounded-lg hover:bg-primary-500/70 transition">
-                Clientes
-              </button> */} 
-              { // Depois que for feita a logica de dashboard e clientes, apenas descomente isso aqui 
-              }
-              <button
-                type="button"
-                className="w-full text-left px-4 py-3 rounded-lg bg-white text-primary-700 font-semibold"
-              >
-                Usuários
-              </button>
-            </nav>
+            <h1 className="text-3xl font-semibold text-slate-800">Gerenciar Usuários</h1>
+            <p className="mt-1 text-slate-500">
+              Criação, edição, bloqueio, restauração e exclusão de acessos do ERP.
+            </p>
           </div>
+          <Button onClick={openCreate}>Novo usuário</Button>
+        </div>
 
-          <div className="p-3 border-t border-primary-500">
-            <Button variant="secondary" fullWidth onClick={handleLogout}>
-              Sair
+        {message && <Alert type="success" message={message} onClose={() => setMessage(null)} />}
+        {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <Card className="border border-slate-200 shadow-sm">
+            <p className="text-3xl font-bold text-primary-700">{stats.total}</p>
+            <p className="text-sm text-slate-500">Na página</p>
+          </Card>
+          <Card className="border border-slate-200 shadow-sm">
+            <p className="text-3xl font-bold text-emerald-600">{stats.active}</p>
+            <p className="text-sm text-slate-500">Ativos</p>
+          </Card>
+          <Card className="border border-slate-200 shadow-sm">
+            <p className="text-3xl font-bold text-amber-600">{stats.inactive}</p>
+            <p className="text-sm text-slate-500">Inativos</p>
+          </Card>
+          <Card className="border border-slate-200 shadow-sm">
+            <p className="text-3xl font-bold text-slate-600">{stats.deleted}</p>
+            <p className="text-sm text-slate-500">Excluídos</p>
+          </Card>
+        </div>
+
+        <Card className="border border-slate-200 shadow-sm">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_180px_180px_auto]">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar por nome ou email"
+            />
+            <select
+              value={role}
+              onChange={(event) => setRole(event.target.value as UserRole | '')}
+              className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+            >
+              <option value="">Todos os perfis</option>
+              <option value={UserRole.ADMIN}>ADMIN</option>
+              <option value={UserRole.VENDOR}>VENDOR</option>
+            </select>
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value as UserStatus | '')}
+              className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+            >
+              <option value="">Todos os status</option>
+              <option value={UserStatus.ACTIVE}>Ativo</option>
+              <option value={UserStatus.INACTIVE}>Inativo</option>
+              <option value={UserStatus.DELETED}>Excluído</option>
+            </select>
+            <Button onClick={applyFilters} isLoading={isLoading}>
+              Filtrar
             </Button>
           </div>
-        </aside>
 
-        <main className="flex-1 min-w-0">
-          <header className="h-[74px] bg-white border-b border-slate-200 px-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">{new Date().toLocaleDateString('pt-BR', {
-                weekday: 'long',
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric',
-              })}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(true)}
-                className="h-10 w-10 rounded-full bg-primary-200 text-primary-800 font-bold flex items-center justify-center hover:bg-primary-300 transition cursor-pointer"
-              >
-                {user?.name?.slice(0, 2).toUpperCase() || 'AD'}
-              </button>
-            </div>
-          </header>
-
-          <section className="p-6 space-y-5">
-            <div className="flex justify-between items-start gap-4">
-              <div>
-                <h1 className="text-4xl font-semibold text-slate-800">Usuários</h1>
-                <p className="text-slate-500 mt-1">Gerencie os usuários cadastrados no sistema</p>
-              </div>
-              <Button onClick={() => void loadUsers()}>Atualizar Lista</Button>
-            </div>
-
-            {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <div className="bg-white rounded-xl p-5 border border-slate-200">
-                <p className="text-3xl font-bold text-primary-700">{stats.total}</p>
-                <p className="text-sm text-slate-500">Total</p>
-              </div>
-              <div className="bg-white rounded-xl p-5 border border-slate-200">
-                <p className="text-3xl font-bold text-green-600">{stats.active}</p>
-                <p className="text-sm text-slate-500">Ativos</p>
-              </div>
-              <div className="bg-white rounded-xl p-5 border border-slate-200">
-                <p className="text-3xl font-bold text-slate-600">{stats.inactive}</p>
-                <p className="text-sm text-slate-500">Inativos</p>
-              </div>
-              <div className="bg-white rounded-xl p-5 border border-slate-200">
-                <p className="text-3xl font-bold text-primary-600">{stats.newThisMonth}</p>
-                <p className="text-sm text-slate-500">Novos este mês</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar por nome, email ou role..."
-                  className="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
-                />
-
-                <select
-                  value={roleFilter}
-                  onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}
-                  className="rounded-lg border border-slate-300 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-300"
-                >
-                  <option value="ALL">Todos os perfis</option>
-                  <option value={UserRole.ADMIN}>ADMIN</option>
-                  <option value={UserRole.VENDOR}>VENDOR</option>
-                </select>
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider">
-                    <tr>
-                      <th className="text-left px-4 py-3">Usuário</th>
-                      <th className="text-left px-4 py-3">Email</th>
-                      <th className="text-left px-4 py-3">Role</th>
-                      <th className="text-left px-4 py-3">Criado em</th>
-                      <th className="text-left px-4 py-3">Status</th>
-                      <th className="text-left px-4 py-3">Ações</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                          Carregando usuários...
-                        </td>
-                      </tr>
-                    ) : filteredUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                          Nenhum usuário encontrado.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredUsers.map((currentUser) => (
-                        <tr key={currentUser.id} className="border-t border-slate-100 hover:bg-slate-50">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold">
-                                {currentUser.name.charAt(0).toUpperCase()}
-                              </div>
-                              <span className="font-medium text-slate-700">{currentUser.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">{currentUser.email}</td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                              {currentUser.role}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">{formatDate(currentUser.createdAt)}</td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                                currentUser.isActive !== false
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : 'bg-slate-200 text-slate-600'
-                              }`}
+          <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th className="px-4 py-3 text-left">Usuário</th>
+                  <th className="px-4 py-3 text-left">Email</th>
+                  <th className="px-4 py-3 text-left">Perfil</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Criado em</th>
+                  <th className="px-4 py-3 text-left">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                      Carregando usuários...
+                    </td>
+                  </tr>
+                ) : users.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                      Nenhum usuário encontrado.
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((currentUser) => (
+                    <tr key={currentUser.id} className="border-t border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-3 font-medium text-slate-800">{currentUser.name}</td>
+                      <td className="px-4 py-3 text-slate-600">{currentUser.email}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                          {currentUser.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={[
+                            'rounded-full px-2 py-1 text-xs font-semibold',
+                            currentUser.status === UserStatus.ACTIVE
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-200 text-slate-700',
+                          ].join(' ')}
+                        >
+                          {statusLabel(currentUser.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{formatDate(currentUser.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => openEdit(currentUser)}>
+                            Editar
+                          </Button>
+                          {currentUser.status === UserStatus.ACTIVE ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={currentUser.id === authenticatedUser?.id}
+                              onClick={() => void deactivateUser(currentUser)}
                             >
-                              {currentUser.isActive !== false ? 'Ativo' : 'Inativo'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-3">
-                              <button
-                                type="button"
-                                onClick={() => startEdit(currentUser)}
-                                className="text-primary-600 hover:text-primary-800 transition"
-                                title="Editar usuário"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeleteConfirmUser(currentUser)}
-                                className="text-red-600 hover:text-red-800 transition"
-                                title="Deletar usuário"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                              Desativar
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => void restoreUser(currentUser)}>
+                              Restaurar
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            disabled={currentUser.id === authenticatedUser?.id}
+                            onClick={() => setConfirmingUser(currentUser)}
+                          >
+                            Deletar
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+            <span>
+              Página {page.totalPages === 0 ? 0 : page.number + 1} de {page.totalPages} ·{' '}
+              {page.totalElements} registros
+            </span>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={page.first || isLoading}
+                onClick={() => void loadUsers(page.number - 1)}
+              >
+                Anterior
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={page.last || isLoading}
+                onClick={() => void loadUsers(page.number + 1)}
+              >
+                Próxima
+              </Button>
             </div>
-          </section>
-        </main>
-      </div>
+          </div>
+        </Card>
+      </section>
 
-      {editingUser && (
-        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-20">
-          <div className="bg-white w-full max-w-xl rounded-xl p-6 border border-slate-200 shadow-lg space-y-4">
-            <h2 className="text-xl font-semibold text-slate-800">Editar Usuário</h2>
-
-            {editError && (
-              <Alert 
-                type="error" 
-                message={editError} 
-                onClose={() => setEditError(null)} 
+      {isModalOpen && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/35 p-4">
+          <form
+            onSubmit={saveUser}
+            className="w-full max-w-xl space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-lg"
+          >
+            <h2 className="text-xl font-semibold text-slate-800">
+              {isEditing ? 'Editar usuário' : 'Novo usuário'}
+            </h2>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Input
+                label="Nome"
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
               />
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input
+                label="Email"
+                type="email"
+                value={form.email}
+                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              />
               <div>
-                <label className="block text-sm text-slate-600 mb-1">Nome</label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, name: event.target.value }))
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, email: event.target.value }))
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">Role</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Perfil</label>
                 <select
-                  value={editForm.role}
+                  value={form.role}
                   onChange={(event) =>
-                    setEditForm((current) => ({
-                      ...current,
-                      role: event.target.value as UserRole,
-                    }))
+                    setForm((current) => ({ ...current, role: event.target.value as UserRole }))
                   }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
                 >
-                  <option value={UserRole.ADMIN}>ADMIN</option>
-                  <option value={UserRole.VENDOR}>VENDOR</option>
+                  <option value={UserRole.VENDOR}>Vendedor</option>
+                  <option value={UserRole.ADMIN}>Administrador</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">Nova senha (opcional)</label>
-                <input
-                  type="password"
-                  value={editForm.password}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, password: event.target.value }))
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                  placeholder="Deixe em branco para manter"
-                />
-              </div>
+              <Input
+                label={isEditing ? 'Nova senha (opcional)' : 'Senha inicial'}
+                type="password"
+                value={form.password}
+                onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+              />
             </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" onClick={cancelEdit} disabled={isSaving}>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSaving}
+              >
                 Cancelar
               </Button>
-              <Button onClick={handleUpdateUser} isLoading={isSaving}>
+              <Button type="submit" isLoading={isSaving}>
                 Salvar
               </Button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
-      {showProfileModal && user && (
-        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-20">
-          <div className="bg-white w-full max-w-xl rounded-xl p-6 border border-slate-200 shadow-lg space-y-4">
-            <h2 className="text-xl font-semibold text-slate-800">Meu Perfil</h2>
-
-            <div className="flex items-center gap-4 py-4 border-b border-slate-200">
-              <div className="h-16 w-16 rounded-full bg-primary-200 text-primary-800 font-bold flex items-center justify-center text-2xl">
-                {user.name?.slice(0, 2).toUpperCase() || 'AD'}
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-slate-800">{user.name}</p>
-                <p className="text-sm text-slate-500">{user.email}</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-slate-600">Role</p>
-                <p className="font-medium text-slate-800">{user.role}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">Status</p>
-                <p className="font-medium">
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                    user.isActive !== false
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {user.isActive !== false ? 'Ativo' : 'Inativo'}
-                  </span>
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">Membro desde</p>
-                <p className="font-medium text-slate-800">{formatDate(user.createdAt)}</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" onClick={() => setShowProfileModal(false)}>
-                Fechar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deleteConfirmUser && (
-        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-20">
-          <div className="bg-white w-full max-w-sm rounded-xl p-6 border border-slate-200 shadow-lg space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4v2m0 4v2m6-14l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-slate-800">Deletar usuário?</h3>
-                <p className="text-sm text-slate-600">Tem certeza que deseja deletar <strong>{deleteConfirmUser.name}</strong>? Esta ação não pode ser desfeita.</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" onClick={() => setDeleteConfirmUser(null)}>
+      {confirmingUser && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/35 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
+            <h2 className="text-xl font-semibold text-slate-800">Deletar usuário?</h2>
+            <p className="text-sm text-slate-600">
+              Esta ação remove permanentemente <strong>{confirmingUser.name}</strong>.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirmingUser(null)}>
                 Cancelar
               </Button>
-              <Button 
-                variant="danger" 
-                onClick={() => handleDeleteUser(deleteConfirmUser)}
-              >
+              <Button variant="danger" onClick={() => void deleteUser()}>
                 Deletar
               </Button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   );
 }
