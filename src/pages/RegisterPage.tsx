@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Input, Button, Card, Alert } from '@components/index';
 import { RegisterRequest, UserRole } from '../types/index';
 
@@ -16,6 +17,7 @@ import { RegisterRequest, UserRole } from '../types/index';
 export function RegisterPage() {
   const navigate = useNavigate();
   const { register, isLoading, error, clearError } = useAuth();
+  const { showToast } = useToast();
   
   const [formData, setFormData] = useState<RegisterRequest>({
     name: '',
@@ -89,7 +91,8 @@ export function RegisterPage() {
     }
 
     try {
-      await register(formData);
+      await register({ ...formData, role: UserRole.VENDOR });
+      showToast('Conta de vendedor criada com sucesso.');
       navigate('/login');
     } catch (err) {
       console.error('Erro ao registrar:', err);
@@ -170,25 +173,6 @@ export function RegisterPage() {
                 error={validationErrors.passwordConfirm}
                 disabled={isLoading}
               />
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Usuário
-              </label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                disabled={isLoading}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition"
-              >
-                <option value={UserRole.VENDOR}>Vendedor (Vendor)</option>
-                <option value={UserRole.ADMIN}>Administrador</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                Você pode alterar isso depois
-              </p>
             </div>
 
             <Button
