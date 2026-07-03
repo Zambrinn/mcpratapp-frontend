@@ -206,6 +206,20 @@ class ApiService {
     return response.data;
   }
 
+  async updateClient(clientId: string, data: ClientRequest): Promise<Client> {
+    const response = await this.api.put<Client>(`/clients/${clientId}`, data);
+    return response.data;
+  }
+
+  async deleteClient(clientId: string): Promise<void> {
+    await this.api.delete(`/clients/${clientId}`);
+  }
+
+  async restoreClient(clientId: string): Promise<Client> {
+    const response = await this.api.put<Client>(`/clients/${clientId}/restore`);
+    return response.data;
+  }
+
   async getProducts(): Promise<Product[]> {
     const response = await this.api.get<Product[]>('/products');
     return response.data;
@@ -213,6 +227,20 @@ class ApiService {
 
   async createProduct(data: ProductRequest): Promise<Product> {
     const response = await this.api.post<Product>('/products', data);
+    return response.data;
+  }
+
+  async updateProduct(productId: string, data: ProductRequest): Promise<Product> {
+    const response = await this.api.put<Product>(`/products/${productId}`, data);
+    return response.data;
+  }
+
+  async deleteProduct(productId: string): Promise<void> {
+    await this.api.delete(`/products/${productId}`);
+  }
+
+  async restoreProduct(productId: string): Promise<Product> {
+    const response = await this.api.put<Product>(`/products/${productId}/restore`);
     return response.data;
   }
 

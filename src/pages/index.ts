@@ -1,5 +1,9 @@
 export { LoginPage } from './LoginPage';
 export { RegisterPage } from './RegisterPage';
+export { DashboardPage } from './DashboardPage';
+export { ClientsPage } from './ClientsPage';
+export { ProductsPage } from './ProductsPage';
 export { UsersPage } from './UsersPage';
 export { SalesPage } from './SalesPage';
+export { ReportsPage } from './ReportsPage';
 export { UnauthorizedPage } from './UnauthorizedPage';
