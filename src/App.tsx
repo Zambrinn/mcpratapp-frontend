@@ -17,7 +17,7 @@ import { useAuth } from './context/AuthContext';
 import { UserRole } from './types/index';
 
 function DefaultRoute() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

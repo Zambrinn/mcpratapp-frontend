@@ -35,9 +35,10 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     );
   }
 
-  const isActive = status === UserStatus.ACTIVE || status === 'ACTIVE' || status === 'OK';
-  const label = status === 'LOW' ? 'Baixo' : isActive ? 'Ativo' : status === UserStatus.DELETED ? 'Excluído' : 'Inativo';
-  const styles = status === 'LOW'
+  const statusValue = String(status);
+  const isActive = statusValue === UserStatus.ACTIVE || statusValue === 'OK';
+  const label = statusValue === 'LOW' ? 'Baixo' : isActive ? 'Ativo' : statusValue === UserStatus.DELETED ? 'Excluído' : 'Inativo';
+  const styles = statusValue === 'LOW'
     ? 'bg-rose-50 text-rose-700'
     : isActive
       ? 'bg-primary-50 text-primary-700'
