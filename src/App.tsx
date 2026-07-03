@@ -1,7 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
-import { LoginPage, RegisterPage, SalesPage, UsersPage, UnauthorizedPage } from '@pages/index';
+import {
+  ClientsPage,
+  DashboardPage,
+  LoginPage,
+  ProductsPage,
+  RegisterPage,
+  ReportsPage,
+  SalesPage,
+  UnauthorizedPage,
+  UsersPage,
+} from '@pages/index';
 import { PrivateRoute } from '@components/PrivateRoute';
 import { useAuth } from './context/AuthContext';
 import { UserRole } from './types/index';
@@ -13,11 +23,7 @@ function DefaultRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role === UserRole.ADMIN) {
-    return <Navigate to="/users" replace />;
-  }
-
-  return <Navigate to="/sales" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 function App() {
@@ -31,10 +37,28 @@ function App() {
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
             <Route
-              path="/users"
+              path="/dashboard"
               element={
-                <PrivateRoute requiredRole={UserRole.ADMIN}>
-                  <UsersPage />
+                <PrivateRoute>
+                  <DashboardPage />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/clients"
+              element={
+                <PrivateRoute>
+                  <ClientsPage />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/products"
+              element={
+                <PrivateRoute>
+                  <ProductsPage />
                 </PrivateRoute>
               }
             />
@@ -44,6 +68,24 @@ function App() {
               element={
                 <PrivateRoute>
                   <SalesPage />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/reports"
+              element={
+                <PrivateRoute>
+                  <ReportsPage />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/users"
+              element={
+                <PrivateRoute requiredRole={UserRole.ADMIN}>
+                  <UsersPage />
                 </PrivateRoute>
               }
             />

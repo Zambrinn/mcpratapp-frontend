@@ -2,16 +2,35 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types/index';
-import { Button } from './Button';
+import { Icon, IconName } from './Icons';
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
-  { label: 'Vendas', to: '/sales', roles: [UserRole.ADMIN, UserRole.VENDOR] },
-  { label: 'Usuários', to: '/users', roles: [UserRole.ADMIN] },
+interface NavItem {
+  label: string;
+  to: string;
+  icon: IconName;
+  roles: UserRole[];
+}
+
+const navItems: NavItem[] = [
+  { label: 'Dashboard', to: '/dashboard', icon: 'grid', roles: [UserRole.ADMIN, UserRole.VENDOR] },
+  { label: 'Clientes', to: '/clients', icon: 'users', roles: [UserRole.ADMIN, UserRole.VENDOR] },
+  { label: 'Produtos', to: '/products', icon: 'box', roles: [UserRole.ADMIN, UserRole.VENDOR] },
+  { label: 'Vendas', to: '/sales', icon: 'cart', roles: [UserRole.ADMIN, UserRole.VENDOR] },
+  { label: 'Relatórios', to: '/reports', icon: 'barChart', roles: [UserRole.ADMIN, UserRole.VENDOR] },
 ];
+
+function longDate(): string {
+  return new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
@@ -19,6 +38,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const profileRef = useRef<HTMLDivElement | null>(null);
+
+  const visibleNav = navItems.filter((item) => user && item.roles.includes(user.role));
 
   const handleLogout = () => {
     logout();
@@ -42,101 +63,98 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#eef3f2] text-slate-700 dark:text-slate-200">
+    <div className="min-h-screen bg-[#eef4f2] text-slate-700 dark:bg-slate-950 dark:text-slate-200">
       <div className="flex min-h-screen">
-        <aside className="hidden w-[224px] shrink-0 bg-primary-500 text-white md:flex md:flex-col md:justify-between">
+        <aside className="hidden w-[214px] shrink-0 bg-primary-400 text-white md:flex md:flex-col md:justify-between">
           <div>
-            <div className="border-b border-primary-600 px-5 py-6">
-              <p className="text-xl font-bold tracking-wide">MCPRATA</p>
-              <p className="text-xs text-primary-100">Sistema ERP</p>
+            <div className="flex items-center gap-3 border-b border-primary-500 px-5 py-5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-primary-500">
+                MC
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-bold leading-5 tracking-wide">MCPRATA</p>
+                <p className="text-xs text-primary-50">Sistema ERP</p>
+              </div>
             </div>
 
-            <nav className="space-y-2 p-3 text-sm">
-              {navItems
-                .filter((item) => user && item.roles.includes(user.role))
-                .map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      [
-                        'block rounded-lg px-4 py-3 font-medium transition',
-                        isActive
-                          ? 'bg-white text-primary-700'
-                          : 'text-primary-50 hover:bg-primary-600',
-                      ].join(' ')
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
+            <nav className="space-y-2 px-3 py-5 text-sm">
+              {visibleNav.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    [
+                      'flex items-center gap-3 rounded-lg px-4 py-3 font-medium transition',
+                      isActive
+                        ? 'bg-white text-primary-500 shadow-sm'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white',
+                    ].join(' ')
+                  }
+                >
+                  <Icon name={item.icon} className="h-5 w-5 shrink-0" />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
             </nav>
           </div>
 
-          <div className="border-t border-primary-600 p-3">
-            <Button variant="secondary" fullWidth onClick={handleLogout}>
-              Sair
-            </Button>
+          <div className="border-t border-primary-500 px-5 py-4 text-center text-xs text-primary-50">
+            © 2026 MCPRATA
           </div>
         </aside>
 
         <main className="min-w-0 flex-1">
-          <header className="flex min-h-[74px] items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
-            <div>
-              <p className="text-sm capitalize text-slate-500">
-                {new Date().toLocaleDateString('pt-BR', {
-                  weekday: 'long',
-                  day: '2-digit',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </p>
-            </div>
+          <header className="flex min-h-[54px] items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
+            <p className="text-sm capitalize text-slate-500">{longDate()}</p>
 
             <div ref={profileRef} className="relative">
               <button
                 type="button"
                 onClick={() => setIsProfileOpen((current) => !current)}
-                className="flex min-w-[176px] items-center justify-between gap-3 rounded-full border border-slate-200 bg-white py-1.5 pl-2 pr-3 text-left shadow-sm transition hover:border-primary-200 hover:bg-primary-50 dark:border-slate-700"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-white shadow-sm ring-2 ring-primary-100"
+                aria-label="Abrir perfil"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-500 text-sm font-bold text-white">
-                    {user?.name?.slice(0, 2).toUpperCase() ?? 'MC'}
-                  </div>
-                  <div className="hidden min-w-0 sm:block">
-                    <p className="truncate text-sm font-semibold leading-4 text-slate-800">{user?.name}</p>
-                    <p className="truncate text-xs text-slate-500">{user?.role}</p>
-                  </div>
-                </div>
-                <span className="text-xs text-slate-400">v</span>
+                {user?.name?.slice(0, 2).toUpperCase() ?? 'MC'}
               </button>
 
               {isProfileOpen && (
-                <div className="absolute right-0 top-[calc(100%+0.65rem)] z-30 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700">
-                  <div className="bg-primary-500 px-4 py-4 text-white">
+                <div className="absolute right-0 top-[calc(100%+0.7rem)] z-30 w-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+                  <div className="bg-primary-400 px-4 py-4 text-white">
                     <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20 font-bold text-white ring-1 ring-white/30">
-                      {user?.name?.slice(0, 2).toUpperCase() ?? 'MC'}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{user?.name}</p>
-                      <p className="truncate text-sm text-primary-50">{user?.email}</p>
-                    </div>
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20 font-bold ring-1 ring-white/35">
+                        {user?.name?.slice(0, 2).toUpperCase() ?? 'MC'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">{user?.name}</p>
+                        <p className="truncate text-sm text-primary-50">{user?.email}</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3 p-4 text-sm">
-                    <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-2 p-3 text-sm">
+                    <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
                       <span className="text-slate-500">Perfil</span>
                       <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">
                         {user?.role}
                       </span>
                     </div>
-                    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700">
-                      <span>
-                        <span className="block font-medium text-slate-700">Modo escuro</span>
-                        <span className="text-xs text-slate-500">Alterna o tema da interface</span>
-                      </span>
+
+                    {user?.role === UserRole.ADMIN && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsProfileOpen(false);
+                          navigate('/users');
+                        }}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-medium text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Gerenciar usuários
+                        <Icon name="users" className="h-4 w-4 text-primary-500" />
+                      </button>
+                    )}
+
+                    <label className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-slate-700 transition hover:bg-slate-50">
+                      <span className="font-medium">Modo escuro</span>
                       <span
                         className={[
                           'relative h-6 w-11 rounded-full transition',
@@ -157,16 +175,39 @@ export function AppLayout({ children }: AppLayoutProps) {
                         />
                       </span>
                     </label>
-                    <Button variant="secondary" fullWidth onClick={handleLogout}>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full rounded-lg px-3 py-2 text-left font-medium text-rose-600 transition hover:bg-rose-50"
+                    >
                       Sair da conta
-                    </Button>
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           </header>
 
-          <div className="p-4 md:p-6">{children}</div>
+          <nav className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-primary-400 px-3 py-3 text-sm md:hidden">
+            {visibleNav.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  [
+                    'flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 font-medium',
+                    isActive ? 'bg-white text-primary-600' : 'text-white',
+                  ].join(' ')
+                }
+              >
+                <Icon name={item.icon} className="h-4 w-4" />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="p-4 md:p-5">{children}</div>
         </main>
       </div>
     </div>
