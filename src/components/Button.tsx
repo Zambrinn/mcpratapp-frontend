@@ -18,19 +18,19 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'font-medium rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseStyles = 'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition duration-200 disabled:cursor-not-allowed disabled:opacity-50';
   
   const variantStyles = {
-    primary: 'bg-primary-400 text-white hover:bg-primary-500 active:bg-primary-600',
-    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 active:bg-gray-400',
-    danger: 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700',
-    ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 active:bg-slate-200',
+    primary: 'bg-primary-400 text-white shadow-sm hover:bg-primary-500 active:bg-primary-600',
+    secondary: 'border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 active:bg-slate-100',
+    danger: 'bg-rose-500 text-white shadow-sm hover:bg-rose-600 active:bg-rose-700',
+    ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 active:bg-slate-200',
   };
 
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg',
+    sm: 'px-3 py-1.5 text-xs',
+    md: 'px-4 py-2.5 text-sm',
+    lg: 'px-6 py-3 text-base',
   };
 
   const widthStyle = fullWidth ? 'w-full' : '';

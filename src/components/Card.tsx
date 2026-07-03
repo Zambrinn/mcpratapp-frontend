@@ -7,7 +7,7 @@ interface CardProps {
 
 export function Card({ children, className = '' }: CardProps) {
   return (
-    <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
+    <div className={`rounded-lg bg-white p-5 shadow-[0_1px_5px_rgba(15,23,42,0.08)] ${className}`}>
       {children}
     </div>
   );
@@ -35,7 +35,7 @@ export function Alert({ type, message, onClose }: AlertProps) {
   };
 
   return (
-    <div className={`border-l-4 p-4 rounded-r-lg ${bgColor[type]}`}>
+    <div className={`rounded-lg border-l-4 p-4 ${bgColor[type]}`}>
       <div className="flex justify-between items-start">
         <p className={`${textColor[type]} text-sm font-medium`}>{message}</p>
         {onClose && (
