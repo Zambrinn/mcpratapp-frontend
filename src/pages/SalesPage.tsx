@@ -50,6 +50,7 @@ export function SalesPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentsByOrderId, setPaymentsByOrderId] = useState<Record<string, Payment[]>>({});
   const [orderForm, setOrderForm] = useState({
     clientId: '',
     vendorId: user?.role === UserRole.VENDOR ? user.id : '',
@@ -66,6 +67,34 @@ export function SalesPage() {
       vendorId: current.vendorId || vendors[0]?.id || '',
     }));
   }, [activeClients, vendors]);
+
+  useEffect(() => {
+    if (orders.length === 0) {
+      setPaymentsByOrderId({});
+      return;
+    }
+
+    let isCurrent = true;
+
+    void Promise.all(
+      orders.map(async (order) => {
+        try {
+          const orderPayments = await apiService.getOrderPayments(order.id);
+          return [order.id, orderPayments] as const;
+        } catch {
+          return [order.id, []] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (isCurrent) {
+        setPaymentsByOrderId(Object.fromEntries(entries));
+      }
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [orders]);
 
   const filteredOrders = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -116,6 +145,7 @@ export function SalesPage() {
     void runAction(async () => {
       const response = await apiService.getOrderPayments(order.id);
       setPayments(response);
+      setPaymentsByOrderId((current) => ({ ...current, [order.id]: response }));
     });
   };
 
@@ -141,6 +171,7 @@ export function SalesPage() {
       const order = await apiService.createOrder(orderForm);
       storeOrder(order);
       setPayments([]);
+      setPaymentsByOrderId((current) => ({ ...current, [order.id]: [] }));
       setIsOrderModalOpen(false);
       setIsDetailsOpen(true);
       setMessage('Venda pendente criada.');
@@ -213,6 +244,7 @@ export function SalesPage() {
       if (selectedOrder.items.length === 0) throw new Error('Adicione ao menos um item antes do pagamento.');
       const payment = await apiService.registerPayment(selectedOrder.id, { paymentMethod });
       setPayments([payment]);
+      setPaymentsByOrderId((current) => ({ ...current, [selectedOrder.id]: [payment] }));
       setMessage('Pagamento pendente registrado.');
     });
   };
@@ -221,8 +253,10 @@ export function SalesPage() {
     void runAction(async () => {
       if (!selectedOrder || !pendingPayment) throw new Error('Não há pagamento pendente para confirmar.');
       const order = await apiService.confirmPayment(selectedOrder.id, pendingPayment.id);
+      const updatedPayments = await apiService.getOrderPayments(order.id);
       storeOrder(order);
-      setPayments(await apiService.getOrderPayments(order.id));
+      setPayments(updatedPayments);
+      setPaymentsByOrderId((current) => ({ ...current, [order.id]: updatedPayments }));
       await loadReferenceData();
       setMessage('Pagamento confirmado e estoque baixado.');
     });
@@ -241,8 +275,10 @@ export function SalesPage() {
     void runAction(async () => {
       if (!selectedOrder) throw new Error('Selecione uma venda.');
       const order = await apiService.cancelOrder(selectedOrder.id);
+      const updatedPayments = await apiService.getOrderPayments(order.id);
       storeOrder(order);
-      setPayments(await apiService.getOrderPayments(order.id));
+      setPayments(updatedPayments);
+      setPaymentsByOrderId((current) => ({ ...current, [order.id]: updatedPayments }));
       await loadReferenceData();
       setMessage('Venda pendente cancelada e reserva estornada.');
     });
@@ -335,6 +371,7 @@ export function SalesPage() {
                 ) : (
                   filteredOrders.map((order) => {
                     const client = clientById.get(order.clientId);
+                    const orderPayment = paymentsByOrderId[order.id]?.[0];
 
                     return (
                       <tr key={order.id} className="border-t border-slate-100 hover:bg-[#f8fbfa]">
@@ -349,7 +386,9 @@ export function SalesPage() {
                         </td>
                         <td className="px-5 py-4 text-slate-600">{formatDate(order.createdAt)}</td>
                         <td className="px-5 py-4 text-slate-600">{orderItemCount(order)} peça(s)</td>
-                        <td className="px-5 py-4 text-slate-600">A definir</td>
+                        <td className="px-5 py-4 text-slate-600">
+                          {orderPayment ? paymentMethodLabel(orderPayment.method) : 'A definir'}
+                        </td>
                         <td className="px-5 py-4 font-semibold text-slate-900">{money(order.totalAmount)}</td>
                         <td className="px-5 py-4">
                           <StatusBadge status={order.status} />
