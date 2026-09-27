@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Alert, AppLayout, Button, Card, Icon, Input, Modal, PageHeader, QuantityStepper, StatCard, StatusBadge } from '@components/index';
+import { Alert, AppLayout, Button, Card, Icon, Modal, PageHeader, QuantityStepper, StatCard, StatusBadge } from '@components/index';
 import apiService from '@services/api';
 import { useToast } from '../context/ToastContext';
 import { useCommercialData } from '../hooks/useCommercialData';
@@ -14,7 +14,6 @@ import {
 import {
   formatDate,
   money,
-  orderItemCount,
   orderStatusLabel,
   paymentMethodLabel,
   paymentStatusLabel,

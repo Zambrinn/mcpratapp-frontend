@@ -13,7 +13,7 @@ import { DashboardSummaryResponse, OrderStatus, UserRole } from '../types/index'
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const { products, orders, isLoading: isCatalogLoading } = useCommercialData();
+  const { products, orders } = useCommercialData();
   const [dashboardData, setDashboardData] = useState<DashboardSummaryResponse | null>(null);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
   const [error, setError] = useState<string | null>(null);
