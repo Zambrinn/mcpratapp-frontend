@@ -8,37 +8,42 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Cores customizadas do MCPRAT
+        // Cores da MCPRATA (Jóias & Acessórios - Prata 925 com toques de Esmeralda/Teal)
         primary: {
-          50: "#f0f4f3",
-          100: "#dce7e5",
-          200: "#b8cfcd",
-          300: "#94b7b5",
-          400: "#7aaaa4",  // Cor principal (sidebar, botões)
-          500: "#609d96",
-          600: "#4d8078",
-          700: "#3a635f",
-          800: "#274646",
-          900: "#14292d",
+          50: "#f0fdfa",
+          100: "#ccfbf1",
+          200: "#99f6e4",
+          300: "#5eead4",
+          400: "#2dd4bf",
+          500: "#14b8a6",
+          600: "#0d9488",
+          700: "#0f766e",
+          800: "#115e59",
+          900: "#134e4a",
         },
-        neutral: {
-          light: "#f5f5f5",
-          border: "#e0e0e0",
+        slate: {
+          850: "#141c2e",
         },
-        success: {
-          light: "#d4edda",
-          DEFAULT: "#28a745",
+        obsidian: {
+          DEFAULT: "#080c14",
+          surface: "#0f172a",
+          elevated: "#182235",
+          border: "#24324a",
         },
-        error: {
-          light: "#f8d7da",
-          DEFAULT: "#dc3545",
-        }
+        silver: {
+          50: "#f8fafc",
+          100: "#f1f5f9",
+          200: "#e2e8f0",
+          300: "#cbd5e1",
+          400: "#94a3b8",
+          500: "#64748b",
+        },
       },
       fontFamily: {
-        sans: ['"Inter"', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
       },
       spacing: {
-        "sidebar": "210px",
+        "sidebar": "240px",
       }
     },
   },
