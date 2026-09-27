@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
+import { Icon } from '../components/Icons';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -22,26 +23,34 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((current) => [...current, { id, type, message }]);
     window.setTimeout(() => {
       setToasts((current) => current.filter((toast) => toast.id !== id));
-    }, 3200);
+    }, 3500);
   }, []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed right-4 top-4 z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2">
+      <div className="fixed right-5 top-5 z-50 flex w-[min(380px,calc(100vw-2.5rem))] flex-col gap-2.5 pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
             className={[
-              'rounded-lg border px-4 py-3 text-sm font-medium shadow-lg',
-              toast.type === 'success' && 'border-emerald-200 bg-emerald-50 text-emerald-800',
-              toast.type === 'error' && 'border-red-200 bg-red-50 text-red-800',
-              toast.type === 'info' && 'border-blue-200 bg-blue-50 text-blue-800',
+              'pointer-events-auto flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs sm:text-sm font-medium shadow-xl backdrop-blur-md animate-fadeIn transition-all',
+              toast.type === 'success' &&
+                'border-emerald-200 bg-white/95 text-emerald-900 dark:border-emerald-800/60 dark:bg-slate-900/95 dark:text-emerald-300',
+              toast.type === 'error' &&
+                'border-rose-200 bg-white/95 text-rose-900 dark:border-rose-800/60 dark:bg-slate-900/95 dark:text-rose-300',
+              toast.type === 'info' &&
+                'border-teal-200 bg-white/95 text-teal-900 dark:border-teal-800/60 dark:bg-slate-900/95 dark:text-teal-300',
             ]
               .filter(Boolean)
               .join(' ')}
           >
-            {toast.message}
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-current/15">
+              {toast.type === 'success' && <Icon name="check" className="h-3.5 w-3.5" />}
+              {toast.type === 'error' && <Icon name="x" className="h-3.5 w-3.5" />}
+              {toast.type === 'info' && <Icon name="trend" className="h-3.5 w-3.5" />}
+            </span>
+            <span className="flex-1 leading-snug">{toast.message}</span>
           </div>
         ))}
       </div>

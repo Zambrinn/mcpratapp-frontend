@@ -16,21 +16,23 @@ export function Input({
   return (
     <div className="w-full">
       {label && (
-        <label className="mb-2 block text-sm font-medium text-slate-700">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
           {label}
         </label>
       )}
       <input
-        className={`w-full rounded-lg border bg-white px-4 py-2.5 text-sm text-slate-700 transition placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-300 ${
-          error ? 'border-red-500' : 'border-gray-300'
+        className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm transition placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500 ${
+          error
+            ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-400/30 dark:border-rose-500/60'
+            : 'border-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
         } ${className}`}
         {...props}
       />
       {error && (
-        <p className="mt-1 text-sm text-red-500">{error}</p>
+        <p className="mt-1.5 text-xs font-medium text-rose-500 dark:text-rose-400 animate-fadeIn">{error}</p>
       )}
       {helperText && !error && (
-        <p className="mt-1 text-sm text-gray-500">{helperText}</p>
+        <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">{helperText}</p>
       )}
     </div>
   );

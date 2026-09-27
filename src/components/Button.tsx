@@ -18,17 +18,22 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition duration-200 disabled:cursor-not-allowed disabled:opacity-50';
-  
+  const baseStyles =
+    'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 select-none';
+
   const variantStyles = {
-    primary: 'bg-primary-400 text-white shadow-sm hover:bg-primary-500 active:bg-primary-600',
-    secondary: 'border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 active:bg-slate-100',
-    danger: 'bg-rose-500 text-white shadow-sm hover:bg-rose-600 active:bg-rose-700',
-    ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 active:bg-slate-200',
+    primary:
+      'bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white shadow-md shadow-teal-600/20 active:bg-teal-700 dark:shadow-teal-950/40',
+    secondary:
+      'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-xs dark:border-slate-700/80 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-750',
+    danger:
+      'bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white shadow-md shadow-rose-600/20 active:bg-rose-700',
+    ghost:
+      'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
   };
 
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-xs',
+    sm: 'px-3 py-1.5 text-xs rounded-lg',
     md: 'px-4 py-2.5 text-sm',
     lg: 'px-6 py-3 text-base',
   };

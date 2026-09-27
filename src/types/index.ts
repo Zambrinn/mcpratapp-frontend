@@ -95,6 +95,8 @@ export interface Client {
   email: string;
   address: string;
   companyName?: string | null;
+  cpf?: string | null;
+  cnpj?: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -105,6 +107,8 @@ export interface ClientRequest {
   email: string;
   address: string;
   companyName?: string | null;
+  cpf?: string | null;
+  cnpj?: string | null;
 }
 
 export interface Product {
@@ -137,6 +141,10 @@ export interface ProductVendor {
 export interface ProductVendorRequest {
   productId: string;
   vendorId: string;
+  price: number;
+}
+
+export interface ProductVendorUpdateRequest {
   price: number;
 }
 
@@ -195,3 +203,58 @@ export interface UserStats {
   inactive: number;
   deleted: number;
 }
+
+export interface TopProductsResponse {
+  productId: string;
+  productName: string;
+  quantitySold: number;
+  totalRevenue: number;
+}
+
+export interface VendorPerformanceResponse {
+  vendorId: string;
+  vendorName: string;
+  totalOrders: number;
+  totalRevenue: number;
+}
+
+export interface DashboardSummaryResponse {
+  totalRevenue: number;
+  totalOrders: number;
+  averageTicket: number;
+  ordersByStatus: Record<OrderStatus, number>;
+  topProducts: TopProductsResponse[];
+  vendorPerformance?: VendorPerformanceResponse[] | null;
+}
+
+export interface DashboardParams {
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface SalesReportItemResponse {
+  orderId: string;
+  clientName: string;
+  vendorName: string;
+  status: OrderStatus;
+  totalAmount: number;
+  discountAmount: number;
+  createdAt: string;
+}
+
+export interface SalesReportResponse {
+  totalRevenue: number;
+  totalDiscounts: number;
+  totalOrders: number;
+  totalItemsSold: number;
+  items: SalesReportItemResponse[];
+}
+
+export interface SalesReportParams {
+  status?: OrderStatus | '';
+  clientId?: string;
+  vendorId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+

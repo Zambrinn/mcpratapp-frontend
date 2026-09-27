@@ -34,6 +34,61 @@ export function formatWhatsApp(value: string): string {
   return `(${areaCode}) ${firstPart}-${secondPart}`;
 }
 
+export function formatCpf(value: string): string {
+  const digits = onlyDigits(value).slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
+}
+
+export function formatCnpj(value: string): string {
+  const digits = onlyDigits(value).slice(0, 14);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12, 14)}`;
+}
+
+export function isValidCpf(cpf: string): boolean {
+  const clean = onlyDigits(cpf);
+  if (clean.length !== 11) return false;
+  if (/^(\d)\1+$/.test(clean)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(clean[i], 10) * (10 - i);
+  let rem = (sum * 10) % 11;
+  if (rem === 10 || rem === 11) rem = 0;
+  if (rem !== parseInt(clean[9], 10)) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(clean[i], 10) * (11 - i);
+  rem = (sum * 10) % 11;
+  if (rem === 10 || rem === 11) rem = 0;
+  return rem === parseInt(clean[10], 10);
+}
+
+export function isValidCnpj(cnpj: string): boolean {
+  const clean = onlyDigits(cnpj);
+  if (clean.length !== 14) return false;
+  if (/^(\d)\1+$/.test(clean)) return false;
+
+  const w1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += parseInt(clean[i], 10) * w1[i];
+  let rem = sum % 11;
+  const d1 = rem < 2 ? 0 : 11 - rem;
+  if (parseInt(clean[12], 10) !== d1) return false;
+
+  const w2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  sum = 0;
+  for (let i = 0; i < 13; i++) sum += parseInt(clean[i], 10) * w2[i];
+  rem = sum % 11;
+  const d2 = rem < 2 ? 0 : 11 - rem;
+  return parseInt(clean[13], 10) === d2;
+}
+
 export function formatDate(value?: string | null): string {
   if (!value) return '-';
   const parsed = new Date(value);
@@ -149,7 +204,9 @@ export function isToday(value?: string): boolean {
 }
 
 export function sumOrders(orders: Order[]): number {
-  return orders.reduce((total, order) => total + order.totalAmount, 0);
+  return orders
+    .filter((order) => order.status !== OrderStatus.CANCELED)
+    .reduce((total, order) => total + order.totalAmount, 0);
 }
 
 export function monthBuckets(orders: Order[]): { label: string; value: number }[] {
@@ -165,13 +222,15 @@ export function monthBuckets(orders: Order[]): { label: string; value: number }[
     };
   });
 
-  orders.forEach((order) => {
-    const parsed = new Date(order.createdAt);
-    if (Number.isNaN(parsed.getTime())) return;
-    const key = `${parsed.getFullYear()}-${parsed.getMonth()}`;
-    const bucket = buckets.find((item) => item.key === key);
-    if (bucket) bucket.value += order.totalAmount;
-  });
+  orders
+    .filter((order) => order.status !== OrderStatus.CANCELED)
+    .forEach((order) => {
+      const parsed = new Date(order.createdAt);
+      if (Number.isNaN(parsed.getTime())) return;
+      const key = `${parsed.getFullYear()}-${parsed.getMonth()}`;
+      const bucket = buckets.find((item) => item.key === key);
+      if (bucket) bucket.value += order.totalAmount;
+    });
 
   return buckets.map(({ label, value }) => ({ label, value }));
 }
@@ -204,3 +263,40 @@ export function orderItemCount(order: Order): number {
 export function activeClientsCount(clients: Client[]): number {
   return clients.filter((client) => client.isActive).length;
 }
+
+export const CATEGORY_SKU_PREFIXES: Record<string, string> = {
+  'Anéis': 'ANE',
+  'Brincos': 'BRI',
+  'Colares': 'COL',
+  'Pulseiras': 'PUL',
+  'Conjuntos': 'CON',
+  'Tornozeleiras': 'TOR',
+  'Pingentes': 'PIN',
+};
+
+export function formatSku(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+}
+
+export function generateNextSku(category: string, existingProducts: Product[]): string {
+  const prefix = CATEGORY_SKU_PREFIXES[category] || category.slice(0, 3).toUpperCase();
+  const pattern = new RegExp(`^MC-${prefix}-(\\d+)$`, 'i');
+
+  let maxSeq = 0;
+  for (const p of existingProducts) {
+    const match = p.sku.trim().match(pattern);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxSeq) maxSeq = num;
+    }
+  }
+
+  const nextSeq = String(maxSeq + 1).padStart(3, '0');
+  return `MC-${prefix}-${nextSeq}`;
+}
+
+export function isValidSku(sku: string): boolean {
+  // Aceita MC-XXX-000 ou qualquer padrão alfanumérico limpo (ex: MC-ANE-001, MC-BRI-102, etc.)
+  return /^[A-Z0-9]{2,4}-[A-Z0-9]{2,4}-\d{2,5}$/.test(sku.trim().toUpperCase());
+}
+
