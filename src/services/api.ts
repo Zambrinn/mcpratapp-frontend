@@ -18,12 +18,17 @@ import {
   ProductRequest,
   ProductVendor,
   ProductVendorRequest,
+  ProductVendorUpdateRequest,
   RegisterRequest,
   User,
   UserCreateRequest,
   UserRole,
   UserStatus,
   UserUpdateRequest,
+  DashboardSummaryResponse,
+  DashboardParams,
+  SalesReportResponse,
+  SalesReportParams,
 } from '../types/index';
 
 interface UserListParams {
@@ -45,9 +50,17 @@ interface OrderListParams {
 function backendMessage(data: unknown): string | null {
   if (!data) return null;
   if (typeof data === 'string') return data;
-  if (typeof data === 'object' && 'message' in data) {
-    const message = (data as { message?: unknown }).message;
-    return typeof message === 'string' ? message : null;
+  if (typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (obj.validationErrors && typeof obj.validationErrors === 'object') {
+      const entries = Object.entries(obj.validationErrors as Record<string, string>);
+      if (entries.length > 0) {
+        return entries.map(([field, msg]) => `${field}: ${msg}`).join(' | ');
+      }
+    }
+    if ('message' in obj && typeof obj.message === 'string') {
+      return obj.message;
+    }
   }
   return null;
 }
@@ -121,7 +134,7 @@ class ApiService {
 
   constructor() {
     this.api = axios.create({
-      baseURL: 'http://localhost:8080/api/v1',
+      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1',
       timeout: 12000,
       headers: {
         'Content-Type': 'application/json',
@@ -259,6 +272,21 @@ class ApiService {
     return normalizeProductVendor(response.data);
   }
 
+  async updateProductVendor(id: string, data: ProductVendorUpdateRequest): Promise<ProductVendor> {
+    const response = await this.api.put<ProductVendor>(`/product-vendors/${id}`, data);
+    return normalizeProductVendor(response.data);
+  }
+
+  async deactivateProductVendor(id: string): Promise<ProductVendor> {
+    const response = await this.api.delete<ProductVendor>(`/product-vendors/${id}`);
+    return normalizeProductVendor(response.data);
+  }
+
+  async restoreProductVendor(id: string): Promise<ProductVendor> {
+    const response = await this.api.put<ProductVendor>(`/product-vendors/${id}/restore`);
+    return normalizeProductVendor(response.data);
+  }
+
   async getOrders(params: OrderListParams = {}): Promise<Order[]> {
     const response = await this.api.get<Order[]>('/orders', { params });
     return response.data.map(normalizeOrder);
@@ -310,6 +338,39 @@ class ApiService {
       paymentMethod,
     });
     return normalizeOrder(response.data);
+  }
+
+  async getDashboard(params: DashboardParams = {}): Promise<DashboardSummaryResponse> {
+    const response = await this.api.get<DashboardSummaryResponse>('/dashboard', { params });
+    return {
+      ...response.data,
+      totalRevenue: normalizeNumber(response.data.totalRevenue),
+      averageTicket: normalizeNumber(response.data.averageTicket),
+      topProducts: (response.data.topProducts || []).map((p) => ({
+        ...p,
+        totalRevenue: normalizeNumber(p.totalRevenue),
+      })),
+      vendorPerformance: response.data.vendorPerformance
+        ? response.data.vendorPerformance.map((vp) => ({
+            ...vp,
+            totalRevenue: normalizeNumber(vp.totalRevenue),
+          }))
+        : null,
+    };
+  }
+
+  async getSalesReport(params: SalesReportParams = {}): Promise<SalesReportResponse> {
+    const response = await this.api.get<SalesReportResponse>('/reports/sales', { params });
+    return {
+      ...response.data,
+      totalRevenue: normalizeNumber(response.data.totalRevenue),
+      totalDiscounts: normalizeNumber(response.data.totalDiscounts),
+      items: (response.data.items || []).map((item) => ({
+        ...item,
+        totalAmount: normalizeNumber(item.totalAmount),
+        discountAmount: normalizeNumber(item.discountAmount),
+      })),
+    };
   }
 
   logout(): void {
