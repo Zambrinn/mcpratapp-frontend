@@ -1,5 +1,3 @@
-import { money } from '../utils/erp';
-
 interface ChartPoint {
   label: string;
   value: number;
@@ -126,9 +124,22 @@ export function PieChart({ data }: { data: ChartPoint[] }) {
   );
 }
 
-export function BarChart({ data, horizontal = false }: { data: ChartPoint[]; horizontal?: boolean }) {
+export function BarChart({
+  data,
+  horizontal = false,
+  formatValue,
+}: {
+  data: ChartPoint[];
+  horizontal?: boolean;
+  formatValue?: (value: number) => string;
+}) {
   const safeData = data.length > 0 ? data : [{ label: '-', value: 0 }];
   const maxValue = Math.max(...safeData.map((item) => item.value), 1);
+
+  const displayValue = (val: number) => {
+    if (formatValue) return formatValue(val);
+    return `${val} ${val === 1 ? 'peça' : 'peças'}`;
+  };
 
   if (horizontal) {
     return (
@@ -143,7 +154,7 @@ export function BarChart({ data, horizontal = false }: { data: ChartPoint[]; hor
               />
             </div>
             <span className="text-right font-bold text-slate-800 dark:text-slate-100 tabular-nums">
-              {money(item.value)}
+              {displayValue(item.value)}
             </span>
           </div>
         ))}
