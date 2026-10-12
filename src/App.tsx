@@ -17,10 +17,14 @@ import { useAuth } from './context/AuthContext';
 import { UserRole } from './types/index';
 
 function DefaultRoute() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user} = useAuth();
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated ||!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === UserRole.VENDOR) {
+    return <Navigate to="/sales" replace />;
   }
 
   return <Navigate to="/dashboard" replace />;
