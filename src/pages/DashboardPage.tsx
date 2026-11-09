@@ -87,7 +87,7 @@ export function DashboardPage() {
             icon="box"
             label="Peças no Estoque"
             value={inventory}
-            trend="Catálogo 925"
+            trend="Catálogo"
             tone="slate"
           />
         </div>

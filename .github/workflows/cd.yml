@@ -28,6 +28,7 @@ jobs:
       - name: Build frontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_STRIPE_PUBLIC_KEY: ${{ secrets.VITE_STRIPE_PUBLIC_KEY }}
         run: npm run build
 
       - name: Configure AWS credentials

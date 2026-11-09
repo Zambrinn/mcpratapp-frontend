@@ -47,6 +47,19 @@ interface OrderListParams {
   endDate?: string;
 }
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payloadBase64 = token.split(".")[1];
+    const payload = JSON.parse(atob(payloadBase64));
+
+    if (!payload.exp) return false;
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true
+  }
+}
+
+
 function backendMessage(data: unknown): string | null {
   if (!data) return null;
   if (typeof data === 'string') return data;
@@ -152,7 +165,16 @@ class ApiService {
 
     this.api.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => Promise.reject(handleErrors(error)),
+      (error: AxiosError) => {
+        if (error.response?.status === 401) {
+          this.logout();
+
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+          }
+        }
+        return Promise.reject(handleErrors(error));
+      },
     );
   }
 
@@ -302,6 +324,16 @@ class ApiService {
     return normalizeOrder(response.data);
   }
 
+  async removeItemFromOrder(orderId: string, itemId: string): Promise<Order> {
+    const response = await this.api.delete<Order>(`/orders/${orderId}/items/${itemId}`);
+    return normalizeOrder(response.data);
+  }
+
+  async updateItemQuantity(orderId: string, itemId: string, quantity: number): Promise<Order> {
+    const response = await this.api.patch<Order>(`/orders/${orderId}/items/${itemId}`, { quantity });
+    return normalizeOrder(response.data);
+  }
+
   async applyDiscount(orderId: string, data: OrderDiscountRequest): Promise<Order> {
     const response = await this.api.patch<Order>(`/orders/${orderId}/discount`, data);
     return normalizeOrder(response.data);
@@ -379,12 +411,24 @@ class ApiService {
   }
 
   getStoredUser(): User | null {
+    const token = localStorage.getItem('authToken');
     const userData = localStorage.getItem('user');
+
+    if (!token || isTokenExpired(token)) {
+      this.logout();
+      return null;
+    }
+
     return userData ? normalizeUser(JSON.parse(userData) as User) : null;
   }
 
   isAuthenticated(): boolean {
     return Boolean(localStorage.getItem('authToken'));
+  }
+
+  getPaymentStreamUrl(orderId: string): string {
+    const baseUrl = this.api.defaults.baseURL || 'http://localhost:8080/api/v1';
+    return `${baseUrl}/orders/${orderId}/payment-stream`;
   }
 }
 

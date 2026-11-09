@@ -74,7 +74,7 @@ export function LoginPage() {
             MCPRATA
           </h1>
           <p className="text-xs font-semibold uppercase tracking-widest text-teal-600 dark:text-teal-400 mt-1">
-            Jóias 925 • Gestão Comercial ERP
+          Gestão Comercial ERP
           </p>
         </div>
 
