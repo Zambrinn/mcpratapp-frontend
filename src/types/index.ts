@@ -189,6 +189,8 @@ export interface Payment {
   method: PaymentMethod;
   status: PaymentStatus;
   amount: number;
+  stripePaymentIntentId?: string | null;
+  stripeClientSecret?: string | null;
   paidAt?: string | null;
   createdAt: string;
 }

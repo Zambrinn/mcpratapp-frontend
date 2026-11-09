@@ -324,6 +324,16 @@ class ApiService {
     return normalizeOrder(response.data);
   }
 
+  async removeItemFromOrder(orderId: string, itemId: string): Promise<Order> {
+    const response = await this.api.delete<Order>(`/orders/${orderId}/items/${itemId}`);
+    return normalizeOrder(response.data);
+  }
+
+  async updateItemQuantity(orderId: string, itemId: string, quantity: number): Promise<Order> {
+    const response = await this.api.patch<Order>(`/orders/${orderId}/items/${itemId}`, { quantity });
+    return normalizeOrder(response.data);
+  }
+
   async applyDiscount(orderId: string, data: OrderDiscountRequest): Promise<Order> {
     const response = await this.api.patch<Order>(`/orders/${orderId}/discount`, data);
     return normalizeOrder(response.data);
@@ -414,6 +424,11 @@ class ApiService {
 
   isAuthenticated(): boolean {
     return Boolean(localStorage.getItem('authToken'));
+  }
+
+  getPaymentStreamUrl(orderId: string): string {
+    const baseUrl = this.api.defaults.baseURL || 'http://localhost:8080/api/v1';
+    return `${baseUrl}/orders/${orderId}/payment-stream`;
   }
 }
 

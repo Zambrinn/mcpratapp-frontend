@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Alert, AppLayout, Button, Card, Icon, Modal, PageHeader, QuantityStepper, StatCard, StatusBadge } from '@components/index';
+import { Alert, AppLayout, Button, Card, Icon, Modal, PageHeader, QuantityStepper, StatCard, StatusBadge, StripeCheckoutModal } from '@components/index';
 import apiService from '@services/api';
 import { useToast } from '../context/ToastContext';
 import { useCommercialData } from '../hooks/useCommercialData';
@@ -59,6 +59,11 @@ export function SalesPage() {
   const [paymentMethod, setPaymentMethod] = useState(PaymentMethod.PIX);
   const [itemError, setItemError] = useState<string | null>(null);
   const [discountError, setDiscountError] = useState<string | null>(null);
+  const [stripeCheckoutData, setStripeCheckoutData] = useState<{
+    clientSecret: string;
+    amount: number;
+    orderId: string;
+  } | null>(null);
 
   useEffect(() => {
     setOrderForm((current) => ({
@@ -238,14 +243,71 @@ export function SalesPage() {
     });
   };
 
+  const handleUpdateItemQuantity = (itemId: string, newQty: number) => {
+    if (!selectedOrder) return;
+    if (newQty <= 0) {
+      handleRemoveItem(itemId);
+      return;
+    }
+    void runAction(async () => {
+      const updatedOrder = await apiService.updateItemQuantity(selectedOrder.id, itemId, newQty);
+      storeOrder(updatedOrder);
+      await loadReferenceData();
+      showToast('Quantidade atualizada.', 'success');
+    });
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    if (!selectedOrder) return;
+    void runAction(async () => {
+      const updatedOrder = await apiService.removeItemFromOrder(selectedOrder.id, itemId);
+      storeOrder(updatedOrder);
+      await loadReferenceData();
+      showToast('Peça removida da comanda.', 'success');
+    });
+  };
+
   const registerPayment = () => {
     void runAction(async () => {
       if (!selectedOrder) throw new Error('Selecione uma venda.');
       if (selectedOrder.items.length === 0) throw new Error('Adicione ao menos um item antes do pagamento.');
+
+      const eventSource = new EventSource(apiService.getPaymentStreamUrl(selectedOrder.id));
+
+      eventSource.addEventListener('PAYMENT_CONFIRM', async () => {
+        eventSource.close();
+
+        const updatedOrders = await apiService.getOrders();
+        const updatedOrder = updatedOrders.find((o) => o.id === selectedOrder.id);
+        const updatedPayments = await apiService.getOrderPayments(selectedOrder.id);
+
+        if (updatedOrder) storeOrder(updatedOrder);
+        setPayments(updatedPayments);
+        setPaymentsByOrderId((current) => ({ ...current, [selectedOrder.id]: updatedPayments }));
+        setStripeCheckoutData(null);
+        await loadReferenceData();
+
+        showToast('Pagamento confirmado em tempo real!', 'success');
+      });
+
+      eventSource.onerror = () => {
+        eventSource.close();
+      };
+
       const payment = await apiService.registerPayment(selectedOrder.id, { paymentMethod });
       setPayments([payment]);
       setPaymentsByOrderId((current) => ({ ...current, [selectedOrder.id]: [payment] }));
-      setMessage('Pagamento pendente registrado.');
+
+      if (payment.method === PaymentMethod.CREDIT_CARD && payment.stripeClientSecret) {
+        setStripeCheckoutData({
+          clientSecret: payment.stripeClientSecret,
+          amount: payment.amount,
+          orderId: selectedOrder.id,
+        });
+        setMessage('Aguardando dados do cartão na Stripe...');
+      } else {
+        setMessage('Processando pagamento assíncrono');
+      }
     });
   };
 
@@ -300,7 +362,7 @@ export function SalesPage() {
       <section className="space-y-5">
         <PageHeader
           title="Vendas"
-          subtitle="Pedidos de bijuterias MCPRATA"
+          subtitle="Pedidos de joias em Prata 925 MCPRATA"
           actions={
             <Button onClick={() => setIsOrderModalOpen(true)}>
               <Icon name="plus" className="h-4 w-4" />
@@ -451,7 +513,7 @@ export function SalesPage() {
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">Abrir Comanda de Venda</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Selecione o cliente para abrir o pedido e adicionar peças de bijuterias finas MCPRATA.
+                    Selecione o cliente para abrir o pedido e adicionar joias em Prata 925 MCPRATA.
                   </p>
                 </div>
               </div>
@@ -585,12 +647,15 @@ export function SalesPage() {
                           <th className="px-4 py-3 text-center">Qtd.</th>
                           <th className="px-4 py-3 text-right">Unitário</th>
                           <th className="px-4 py-3 text-right">Subtotal</th>
+                          {canEditPendingOrder && (
+                            <th className="px-4 py-3 text-center w-16">Ações</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                         {selectedOrder.items.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">
+                            <td colSpan={canEditPendingOrder ? 5 : 4} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">
                               <Icon name="cart" className="mx-auto mb-2 h-7 w-7 text-slate-300 dark:text-slate-600" />
                               <p className="font-semibold text-slate-600 dark:text-slate-300">Nenhuma peça adicionada ainda</p>
                               <p className="mt-1 text-xs">Selecione peças do catálogo ao lado para incluir na venda.</p>
@@ -612,9 +677,35 @@ export function SalesPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-center">
-                                  <span className="inline-flex items-center rounded-lg bg-teal-50 px-2.5 py-1 font-bold text-teal-700 dark:bg-teal-950/60 dark:text-teal-300">
-                                    {item.quantity}
-                                  </span>
+                                  {canEditPendingOrder ? (
+                                    <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-800">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateItemQuantity(item.id, item.quantity - 1)}
+                                        disabled={isWorking}
+                                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+                                        title="Diminuir quantidade"
+                                      >
+                                        <Icon name="minus" className="h-3 w-3" />
+                                      </button>
+                                      <span className="w-8 text-center text-xs font-bold text-slate-900 dark:text-white tabular-nums">
+                                        {item.quantity}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateItemQuantity(item.id, item.quantity + 1)}
+                                        disabled={isWorking}
+                                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+                                        title="Aumentar quantidade"
+                                      >
+                                        <Icon name="plus" className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded-lg bg-teal-50 px-2.5 py-1 font-bold text-teal-700 dark:bg-teal-950/60 dark:text-teal-300">
+                                      {item.quantity}
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-300 tabular-nums">
                                   {money(item.unitPrice)}
@@ -622,6 +713,19 @@ export function SalesPage() {
                                 <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white tabular-nums">
                                   {money(item.subtotal)}
                                 </td>
+                                {canEditPendingOrder && (
+                                  <td className="px-4 py-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveItem(item.id)}
+                                      disabled={isWorking}
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40 transition disabled:opacity-50"
+                                      title="Remover peça da comanda"
+                                    >
+                                      <Icon name="trash" className="h-4 w-4" />
+                                    </button>
+                                  </td>
+                                )}
                               </tr>
                             );
                           })
@@ -905,15 +1009,35 @@ export function SalesPage() {
                         )}
 
                         {pendingPayment && (
-                          <Button
-                            onClick={confirmPayment}
-                            isLoading={isWorking}
-                            fullWidth
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                          >
-                            <Icon name="check" className="h-4 w-4" />
-                            Confirmar Recebimento e Baixar Estoque
-                          </Button>
+                          <>
+                            {pendingPayment.method === PaymentMethod.CREDIT_CARD && pendingPayment.stripeClientSecret && (
+                              <Button
+                                onClick={() => {
+                                  if (selectedOrder) {
+                                    setStripeCheckoutData({
+                                      clientSecret: pendingPayment.stripeClientSecret!,
+                                      amount: pendingPayment.amount,
+                                      orderId: selectedOrder.id,
+                                    });
+                                  }
+                                }}
+                                fullWidth
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                              >
+                                <Icon name="wallet" className="h-4 w-4" />
+                                Abrir Pagamento com Cartão (Stripe)
+                              </Button>
+                            )}
+                            <Button
+                              onClick={confirmPayment}
+                              isLoading={isWorking}
+                              fullWidth
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                              <Icon name="check" className="h-4 w-4" />
+                              Confirmar Recebimento e Baixar Estoque
+                            </Button>
+                          </>
                         )}
 
                         {selectedOrder.status === OrderStatus.CONFIRMED && (
@@ -946,6 +1070,18 @@ export function SalesPage() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {stripeCheckoutData && (
+        <StripeCheckoutModal
+          clientSecret={stripeCheckoutData.clientSecret}
+          amount={stripeCheckoutData.amount}
+          orderId={stripeCheckoutData.orderId}
+          onClose={() => setStripeCheckoutData(null)}
+          onPaymentSuccess={() => {
+            showToast('Pagamento enviado à Stripe! Aguardando confirmação assíncrona...', 'info');
+          }}
+        />
       )}
     </AppLayout>
   );
