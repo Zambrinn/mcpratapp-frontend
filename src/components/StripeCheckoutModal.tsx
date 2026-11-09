@@ -158,7 +158,7 @@ export function StripeCheckoutModal({
       {!isStripeConfigured ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center dark:border-amber-900/60 dark:bg-amber-950/30">
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
-            <Icon name="info" className="h-5 w-5" />
+            <Icon name="warning" className="h-5 w-5" />
           </div>
           <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
             Chave Pública da Stripe Ausente
