@@ -340,7 +340,7 @@ export function ProductsPage() {
       <section className="space-y-6">
         <PageHeader
           title="Catálogo de Peças"
-          subtitle="Gerencie as peças de prata 925 e preços praticados"
+          subtitle="Gerencie as peças de prata e preços praticados"
           actions={
             <div className="flex items-center gap-2.5">
               {isAdmin ? (
@@ -482,7 +482,7 @@ export function ProductsPage() {
                             {productCategory}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-xs font-medium text-slate-500 dark:text-slate-400">Prata 925</td>
+                        <td className="px-5 py-4 text-xs font-medium text-slate-500 dark:text-slate-400">Prata</td>
                         <td className="px-5 py-4 font-semibold text-slate-900 dark:text-slate-100">
                           {price === null ? (
                             <span className="text-xs font-normal text-slate-400">Não vinculado</span>
@@ -623,7 +623,7 @@ export function ProductsPage() {
                 required
                 value={productForm.name}
                 error={formErrors.name}
-                placeholder="Ex: Anel Solitário Prata 925"
+                placeholder="Ex: Anel Solitário Prata"
                 onChange={(event) => {
                   setProductForm((current) => ({ ...current, name: event.target.value }));
                   if (formErrors.name) setFormErrors((e) => ({ ...e, name: undefined }));

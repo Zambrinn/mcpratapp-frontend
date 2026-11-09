@@ -88,7 +88,6 @@ export function AppLayout({ children }: AppLayoutProps) {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-base font-extrabold tracking-tight text-white">MCPRATA</p>
-                <p className="text-[11px] font-medium tracking-wide uppercase text-teal-400">Jóias 925</p>
               </div>
             </div>
 
