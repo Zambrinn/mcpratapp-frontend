@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icons';
 
@@ -9,24 +9,31 @@ interface ModalProps {
   widthClass?: string;
 }
 
+let openModalsCount = 0;
+
 export function Modal({ title, children, onClose, widthClass = 'max-w-2xl' }: ModalProps) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    
-    // Travar scroll do body quando o modal estiver aberto
-    const originalOverflow = document.body.style.overflow;
+
+    openModalsCount += 1;
     document.body.style.overflow = 'hidden';
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = originalOverflow;
+      openModalsCount = Math.max(0, openModalsCount - 1);
+      if (openModalsCount === 0) {
+        document.body.style.overflow = '';
+      }
     };
-  }, [onClose]);
+  }, []);
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -56,7 +63,7 @@ export function Modal({ title, children, onClose, widthClass = 'max-w-2xl' }: Mo
         </div>
 
         {/* Modal Body com scroll */}
-        <div className="overflow-y-auto p-7">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-7">{children}</div>
       </div>
     </div>,
     document.body
